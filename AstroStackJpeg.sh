@@ -6,6 +6,8 @@ function cleanUp () {
     
 }
 
+TS_START=$(date +%s)
+
 trap cleanUp EXIT
 
 # stack bias frames
@@ -63,3 +65,6 @@ while [ $((${I}*${AMOUNT})) -lt ${NUM} ]; do
 done
 convert temp/temp-*.jpg -monitor -evaluate-sequence median final.jpg
 
+TS_END=$(date +%s)
+
+echo "Process finished in $(((${TS_END}-${TS_START})/60)) minutes"
