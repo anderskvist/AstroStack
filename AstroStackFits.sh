@@ -1,26 +1,43 @@
-#!/bin/bash -ex
+#!/bin/bash -e
+
+function bail () {
+	echo ${*}
+	exit 1
+}
+
+command -v dcraw > /dev/null || bail "Missing dcraw"
+command -v convert > /dev/null || bail "Missing ImageMagick convert"
+command -v composite > /dev/null || bail "Missing ImageMagick composite"
 
 . $(dirname ${0})/fits_demosaic.sh
 
+DCRAW="dcraw -t 0 -a -W -D -6 -c"
+
 # BIAS
 if [ ! -f bias.fits ]; then
-	for F in bias/*.cr2; do dcraw -t 0 -a -W -D -6 ${F}; done
-	for F in bias/*.pgm; do convert ${F} ${F}.fits; rm ${F}; done
+	for F in bias/*.cr2; do
+		FILENAME=$(basename ${F} .cr2)
+		${DCRAW} ${F} | convert /dev/stdin bias/${FILENAME}.fits
+	done
 	convert -quiet bias/*.fits -monitor -evaluate-sequence median bias.fits
 fi
 
 # DARK
 if [ ! -f dark.fits ]; then
-	for F in dark/*.cr2; do dcraw -t 0 -a -W -D -6 ${F}; done
-	for F in dark/*.pgm; do convert ${F} ${F}.fits; rm ${F}; done
+	for F in dark/*.cr2; do
+		FILENAME=$(basename ${F} .cr2)
+		${DCRAW} ${F} | convert /dev/stdin dark/${FILENAME}.fits
+	done
 	convert -quiet dark/*.fits -monitor -evaluate-sequence median dark.fits
 fi
 
 # FLAT
 if [ ! -f flat-bias.fits ]; then
-	for F in flat/*.CR2; do dcraw -t 0 -a -W -D -6 ${F}; done
-	for F in flat/*.pgm; do convert ${F} ${F}.fits; rm ${F}; done
-	for F in flat/*.fits; do composite -monitor ${F} bias.fits -compose minus ${F}-bias.fits; rm -f ${F}; done
+	for F in flat/*.CR2; do
+		FILENAME=$(basename ${F} .CR2)
+		${DCRAW} ${F} | convert /dev/stdin flat/${FILENAME}.fits
+		composite -monitor flat/${FILENAME}.fits bias.fits -compose minus flat/${FILENAME}-bias.fits
+	done
 	convert -quiet flat/*-bias.fits -monitor -evaluate-sequence median -type Grayscale -linear-stretch 0x5% flat-bias.fits
 fi
 
