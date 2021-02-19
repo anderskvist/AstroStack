@@ -8,6 +8,7 @@ function bail () {
 command -v dcraw > /dev/null || bail "Missing dcraw"
 command -v convert > /dev/null || bail "Missing ImageMagick convert"
 command -v composite > /dev/null || bail "Missing ImageMagick composite"
+command -v identify > /dev/null || bail "Missing ImageMagick identify"
 
 . $(dirname ${0})/fits_demosaic.sh
 
@@ -42,8 +43,9 @@ if [ ! -f flat-bias.fits ]; then
 fi
 
 # LIGHT
-for F in light/*.cr2; do dcraw -t 0 -a -W -D -6 ${F}; done
-for F in light/*.pgm; do convert ${F} ${F}.fits; rm ${F}; done
-for F in light/*.fits; do composite -monitor ${F} dark.fits -compose minus ${F}-dark.fits; rm ${F}; done
-for F in light/*-dark.fits; do composite -monitor ${F} -compose divide flat-bias.fits ${F}-flat-bias.fits; rm ${F}; done
-for F in light/*-dark.fits-flat-bias.fits; do demosaic ${F} ${F}-done.fits; rm ${F}; done
+for F in light/*.cr2; do
+	FILENAME=$(basename ${F} .cr2)
+	${DCRAW} ${F} | composite -monitor /dev/stdin dark.fits -compose minus light/${FILENAME}-dark.fits
+	composite -monitor light/${FILENAME}-dark.fits -compose divide flat-bias.fits light/${FILENAME}-dark-flat-bias.fits
+	demosaic light/${FILENAME}-dark-flat-bias.fits ${FILENAME}-done.fits
+done
